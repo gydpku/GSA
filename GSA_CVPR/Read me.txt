@@ -1,0 +1,18 @@
+We provide the code of GAD here 
+Running online continual learning Experiments 
+Environment:
+	Pytorch1.6
+	Numpy
+	Scipy
+	Apex
+
+Dataset:CIFAR100
+
+GSA
+	
+	
+
+	for CIFAR100
+		python test_cifar100.py
+	
+
