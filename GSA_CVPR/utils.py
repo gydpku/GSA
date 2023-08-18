@@ -1,5 +1,90 @@
 import torch
+def flip_inner(x, flip1, flip2):
+    num = x.shape[0]
 
+    # print(num)
+    a = x  # .permute(0,1,3,2)
+    a = a.view(num, 3, 2, 16, 32)
+    #  imshow(torchvision.utils.make_grid(a))
+    a = a.permute(2, 0, 1, 3, 4)
+    s1 = a[0]  # .permute(1,0, 2, 3)#, 4)
+    s2 = a[1]  # .permute(1,0, 2, 3)
+    # print("a",a.shape,a[:63][0].shape)
+    if flip1:
+        s1 = torch.flip(s1, (3,))  # torch.rot90(s1, 2*rot1, (2, 3))
+    if flip2:
+        s2 = torch.flip(s2, (3,))  # torch.rot90(s2, 2*rot2, (2, 3))
+
+    s = torch.cat((s1.unsqueeze(2), s2.unsqueeze(2)), dim=2)
+    # imshow(torchvision.utils.make_grid(s[2]))
+    #   print("s",s.shape)
+    # S = s.permute(0,1, 2, 3, 4)  # .view(3,32,32)
+    # print("S",S.shape)
+    S = s.reshape(num, 3, 32, 32)
+    # S =S.permute(0,1,3,2)
+    # imshow(torchvision.utils.make_grid(S[2]))
+    #    print("S", S.shape)
+    return S
+
+
+def RandomFlip(x, num):
+    # print(x.shape)
+    #aug_x = simclr_aug(x)
+    x=simclr_aug(x)
+    X = []
+    # print(x.shape)
+
+    # for i in range(4):
+    X.append(x)
+    X.append(flip_inner(x, 1, 1))
+
+    X.append(flip_inner(x, 0, 1))
+
+    X.append(flip_inner(x, 1, 0))
+    # else:
+    #   x1=rot_inner(x,0,1)
+
+    return torch.cat([X[i] for i in range(num)], dim=0)
+
+
+def rot_inner(x, rot1, rot2):
+    num = x.shape[0]
+
+    # print(num)
+    a = x.permute(0, 1, 3, 2)
+    a = a.view(num, 3, 2, 16, 32)
+    #  imshow(torchvision.utils.make_grid(a))
+    a = a.permute(2, 0, 1, 3, 4)
+    s1 = a[0]  # .permute(1,0, 2, 3)#, 4)
+    s2 = a[1]  # .permute(1,0, 2, 3)
+    # print("a",a.shape,a[:63][0].shape)
+    s1 = torch.rot90(s1, 2 * rot1, (2, 3))
+    s2 = torch.rot90(s2, 2 * rot2, (2, 3))
+
+    s = torch.cat((s1.unsqueeze(2), s2.unsqueeze(2)), dim=2)
+
+    S = s.reshape(num, 3, 32, 32)
+    S = S.permute(0, 1, 3, 2)
+
+    return S
+
+
+def Rotation(x, r):
+    # print(x.shape)
+    x = torch.rot90(x, r, (2, 3))
+    X = []
+    # print(x.shape)
+
+    X.append(rot_inner(x, 0, 0))
+
+    X.append(rot_inner(x, 1, 1))
+
+    X.append(rot_inner(x, 1, 0))
+
+    X.append(rot_inner(x, 0, 1))
+
+
+    return x
 import torch.nn.functional as F
 def cutmix_data(x, y, Basic_model,alpha=1.0, cutmix_prob=0.5,):
     assert alpha > 0
@@ -116,6 +201,166 @@ def rot_inner(x):
                                                                                                                   3, 2)
 
     return R
+
+
+
+def test_model_cur(loder, i):
+    test_loss = 0
+    correct = 0
+    num = 0
+    for batch_idx, (data, target) in enumerate(loder):
+        data, target = data.cuda(), target.cuda()
+        # data, target = Variable(data, volatile=True), Variable(target)
+        Basic_model.eval()
+        pred = Basic_model.forward(data)[:,2*(i):2*(i+1)]
+        Pred = pred.data.max(1, keepdim=True)[1]
+        num += data.size()[0]
+        target=target-2*i
+
+        #    print("final", Pred, target.data.view_as(Pred))
+        # print(target,"True",pred)
+
+        correct += Pred.eq(target.data.view_as(Pred)).cpu().sum()
+
+    test_accuracy = 100. * correct / num  # len(data_loader.dataset)
+    print(
+        'Test set{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'
+            .format(i,
+                    test_loss, correct, num,
+                    100. * correct / num, ))
+    return test_accuracy
+
+def test_model_past(loder, i):
+    test_loss = 0
+    correct = 0
+    num = 0
+    for batch_idx, (data, target) in enumerate(loder):
+        data, target = data.cuda(), target.cuda()
+        # data, target = Variable(data, volatile=True), Variable(target)
+        Basic_model.eval()
+        pred = Basic_model.forward(data)[:,:2*(i+1)]
+        Pred = pred.data.max(1, keepdim=True)[1]
+        num += data.size()[0]
+        target=target
+
+        #    print("final", Pred, target.data.view_as(Pred))
+        # print(target,"True",pred)
+
+        correct += Pred.eq(target.data.view_as(Pred)).cpu().sum()
+
+    test_accuracy = 100. * correct / num  # len(data_loader.dataset)
+    print(
+        'Test set{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'
+            .format(i,
+                    test_loss, correct, num,
+                    100. * correct / num, ))
+    return test_accuracy
+def test_model_future(loder, i):
+    test_loss = 0
+    correct = 0
+    num = 0
+    for batch_idx, (data, target) in enumerate(loder):
+        data, target = data.cuda(), target.cuda()
+        # data, target = Variable(data, volatile=True), Variable(target)
+        Basic_model.eval()
+        pred = Basic_model.forward(data)[:,2*i:]
+        Pred = pred.data.max(1, keepdim=True)[1]
+        num += data.size()[0]
+        target=target-2*i
+
+        correct += Pred.eq(target.data.view_as(Pred)).cpu().sum()
+
+    test_accuracy = 100. * correct / num  # len(data_loader.dataset)
+    print(
+        'Test set{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'
+            .format(i,
+                    test_loss, correct, num,
+                    100. * correct / num, ))
+    return test_accuracy
+
+
+def test_model(loder, i):
+    test_loss = 0
+    correct = 0
+    num = 0
+    for batch_idx, (data, target) in enumerate(loder):
+        data, target = data.cuda(), target.cuda()
+        # data, target = Variable(data, volatile=True), Variable(target)
+        Basic_model.eval()
+        pred = Basic_model.forward(data)
+        Pred = pred.data.max(1, keepdim=True)[1]
+        num += data.size()[0]
+
+        correct += Pred.eq(target.data.view_as(Pred)).cpu().sum()
+
+    test_accuracy = 100. * correct / num  # len(data_loader.dataset)
+    print(
+        'Test set{}: Average loss: {:.4f}, Accuracy: {}/{} ({:.2f}%)'
+            .format(i,
+                    test_loss, correct, num,
+                    100. * correct / num, ))
+    return test_accuracy
+
+
+
+def get_true_prob(x, y, llabel):
+    num = x.size()[0]
+    true = []
+    true2 = []
+    for i in range(num):
+
+        if y[i] in llabel:
+            true.append(1)
+        else:
+            true.append(0)
+        # true.append(x[i][y[i]])
+        # true2.append(0.5)
+
+        # true.append(x[i][y[i]])
+    return torch.FloatTensor(true).cuda()  # ,#torch.FloatTensor(true2).cuda()
+
+
+def get_prob_rate(x, logits, label):
+    num = x.size()[0]
+    logits = F.softmax(logits, dim=1)
+    rate = []
+    # true2=[]
+    for i in range(num):
+        true_prob = logits[i][label[i]].item()
+        max_prob = torch.max(logits[i])
+        rate.append(true_prob / max_prob)
+    return torch.FloatTensor(rate).cuda()
+
+
+def get_prob_rate_cross( logits, label, t):
+    logits = F.softmax(logits, dim=1)
+    rate = []
+    num = logits.size()[0]
+    # true2=[]
+    # import pdb
+    # pdb.set_trace()
+    for i in range(num):
+        true_prob = logits[i][label[i]].item()
+        # import pdb
+        # pdb.set_trace()
+        max_prob = torch.max(logits[i, :-t])
+        rate.append(true_prob / max_prob)
+    return torch.FloatTensor(rate).cuda()
+def get_mean_rate_cross( logits, label, t):
+    logits = F.softmax(logits, dim=1)
+    rate = []
+    num = logits.size()[0]
+    # true2=[]
+    # import pdb
+    # pdb.set_trace()
+    for i in range(num):
+        true_prob = logits[i][label[i]].item()
+        # import pdb
+        # pdb.set_trace()
+        max_prob = torch.max(logits[i, :-t])
+        rate.append(true_prob / max_prob)
+    return torch.FloatTensor(rate).cuda()
+
 def square_diagonal_16(x):
     num = x.shape[0]
 
