@@ -1,10 +1,15 @@
 # GSA
 We provide the code of GSA here.
 You need to install these packages first:
+
+
 Pytorch1.6
-	Numpy
-	Scipy
-	Apex
+
+Numpy
+
+Scipy
+
+Apex
  
 You can use this command to run online continual learning Experiments:
 
